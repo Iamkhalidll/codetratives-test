@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Attribute {
+  id     Int      @id @default(autoincrement())
+  name   String
+  slug   String   @unique
+  values AttributeValue[]
+}
+
+model AttributeValue {
+  id           Int       @id @default(autoincrement())
+  value        String
+  attributeId  Int
+  attribute    Attribute @relation(fields: [attributeId], references: [id])
+}
+
+model Author {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  isApproved           Boolean    @default(false)
+  image                Json?
+  coverImage           Json?
+  slug                 String     @unique
+  language             String
+  bio                  String?    @db.Text
+  quote                String?    @db.Text
+  born                 DateTime?
+  death                DateTime?
+  languages            String?
+  socials              Json?
+  productsCount        Int        @default(0)
+  translatedLanguages  String[]
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  slug      String     @unique
+  image     Json?
+  icon      String?
+  children  Category[] @relation("SubCategories")
+  parent    Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  parentId  Int?
+}
+
+model Coupon {
+  id                   Int       @id @default(autoincrement())
+  code                 String    @unique
+  language            String?
+  description         String?    @db.Text
+  image               Json?
+  type                String
+  amount              Float
+  activeFrom          DateTime
+  expireAt            DateTime
+  isValid             Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  translatedLanguages String[]
+}
+
+model OrderFile {
+  id             Int      @id @default(autoincrement())
+  purchaseKey    String   @unique
+  digitalFileId  Int
+  orderId        Int?
+  customerId     Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  file           Json?
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  trackingNumber  String   @unique
+  amount          Float
+  total           Float
+  deliveryFee     Float
+  discount        Float
+  status          Json
+  deliveryTime    String
+  products        Json[]
+  shippingAddress Json
+  createdAt       DateTime @default(now())
+}
+
+model OrderStatus {
+  id        Int      @id @default(autoincrement())
+  name      String
+  serial    Int
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id           Int      @id @default(autoincrement())
+  name         String
+  slug         String   @unique
+  description  String?  @db.Text
+  image        Json?
+  gallery      Json[]
+  quantity     Int      @default(0)
+  price        Float?
+  salePrice    Float?
+  unit         String?
+  productType  String?
+  maxPrice     Float?
+  minPrice     Float?
+  tags         Json[]
+  variations   Json[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Shop {
+  id          Int      @id @default(autoincrement())
+  ownerId     Int
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  coverImage  Json?
+  logo        Json?
+  isActive    Boolean  @default(true)
+  address     Json?
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  name              String
+  email             String    @unique
+  emailVerifiedAt   DateTime?
+  isActive          Boolean   @default(true)
+  shopId            Int?
+  profile           Json?
+  address           Json[]
+  permissions       Json[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
