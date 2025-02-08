@@ -4,17 +4,24 @@ import { AuthController } from './auth.controller';
 import { APP_PIPE } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { JwtStrategy } from './strategy/jwt.strategy';
 
 @Module({
   imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret:`${process.env.JWT_SECRET}`,
-      signOptions:{ expiresIn: process.env.JWT_EXPIRATION },
+      secret: process.env.JWT_SECRET,
+      signOptions: {
+        expiresIn: process.env.JWT_EXPIRES_IN || '30d',
+      },
     }),
-  ],
+    PrismaModule,],
   controllers: [AuthController],
   providers: [
     AuthService,
+    JwtStrategy,
   ],
   exports: [AuthService],
 })
