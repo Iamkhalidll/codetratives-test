@@ -31,7 +31,7 @@ export class AuthController {
 
   @Get("test")
   async test() {
-    console.log("test", process.env);
+    console.log("test", process.env.DATABASE_URL);
     return process.env.JWT_EXPIRATION_TIME;
   }
   @Post('login')
