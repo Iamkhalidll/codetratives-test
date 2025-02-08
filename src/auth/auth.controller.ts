@@ -29,6 +29,10 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @Get("test")
+  async test() {
+    return (process.env.DATABASE_URL);
+  }
   @Post('login')
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ type: AuthResponseDto })
