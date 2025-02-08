@@ -1,82 +1,83 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { Serialize } from '../common/interceptors/serialize.interceptor';
+// import { JwtAuthGuard } from './guards/jwt-auth.guard';
+// import { GetUser } from './decorators/get-user.decorator';
 import {
-  ChangePasswordDto,
-  ForgetPasswordDto,
-  LoginDto,
-  OtpDto,
-  OtpLoginDto,
   RegisterDto,
-  ResetPasswordDto,
-  SocialLoginDto,
-  VerifyForgetPasswordDto,
+  LoginDto,
+  ChangePasswordDto,
+  OtpDto,
   VerifyOtpDto,
+  SocialLoginDto
 } from './dto/create-auth.dto';
+import { AuthResponseDto } from './dto/response/auth-response';
+import { UserResponseDto } from './dto/response/user-response';
+import { OtpResponseDto } from './dto/response/otp-response';
 
-@Controller()
+@ApiTags('Auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  createAccount(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
-  }
-  @Post('token')
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
-  }
-  @Post('social-login-token')
-  socialLogin(@Body() socialLoginDto: SocialLoginDto) {
-    return this.authService.socialLogin(socialLoginDto);
-  }
-  @Post('otp-login')
-  otpLogin(@Body() otpLoginDto: OtpLoginDto) {
-    return this.authService.otpLogin(otpLoginDto);
-  }
-  @Post('send-otp-code')
-  sendOtpCode(@Body() otpDto: OtpDto) {
-    return this.authService.sendOtpCode(otpDto);
-  }
-  @Post('verify-otp-code')
-  verifyOtpCode(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.authService.verifyOtpCode(verifyOtpDto);
-  }
-  @Post('forget-password')
-  forgetPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
-    return this.authService.forgetPassword(forgetPasswordDto);
-  }
-  @Post('reset-password')
-  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(resetPasswordDto);
-  }
-  @Post('change-password')
-  changePassword(@Body() changePasswordDto: ChangePasswordDto) {
-    return this.authService.changePassword(changePasswordDto);
-  }
-  @Post('logout')
-  async logout(): Promise<boolean> {
-    return true;
-  }
-  @Post('verify-forget-password-token')
-  verifyForgetPassword(
-    @Body() verifyForgetPasswordDto: VerifyForgetPasswordDto,
-  ) {
-    return this.authService.verifyForgetPasswordToken(verifyForgetPasswordDto);
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({ type: AuthResponseDto })
+  @Serialize(AuthResponseDto)
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
-  @Get('me')
-  me() {
-    return this.authService.me();
+  @Post('login')
+  @ApiOperation({ summary: 'User login' })
+  @ApiResponse({ type: AuthResponseDto })
+  @Serialize(AuthResponseDto)
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
-  @Post('add-points')
-  addWalletPoints(@Body() addPointsDto: any) {
-    return this.authService.me();
+
+  // @Post('social-login')
+  // @ApiOperation({ summary: 'Social login' })
+  // @ApiResponse({ type: AuthResponseDto })
+  // @Serialize(AuthResponseDto)
+  // async socialLogin(@Body() dto: SocialLoginDto) {
+  //   return this.authService.socialLogin(dto);
+  // }
+
+  // @Post('change-password')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiOperation({ summary: 'Change password' })
+  // @ApiResponse({ type: Boolean })
+  // async changePassword(
+  //   @GetUser('id') userId: number,
+  //   @Body() dto: ChangePasswordDto,
+  // ) {
+  //   return this.authService.changePassword(userId, dto);
+  // }
+
+  @Post('otp')
+  @ApiOperation({ summary: 'Send OTP' })
+  @ApiResponse({ type: OtpResponseDto })
+  @Serialize(OtpResponseDto)
+  async sendOtp(@Body() dto: OtpDto) {
+    const id = await this.authService.sendOtp(dto);
+    return { id, phone_number: dto.phone_number, verified: false };
   }
-  @Post('contact-us')
-  contactUs(@Body() addPointsDto: any) {
-    return {
-      success: true,
-      message: 'Thank you for contacting us. We will get back to you soon.',
-    };
+
+  @Post('verify-otp')
+  @ApiOperation({ summary: 'Verify OTP' })
+  @ApiResponse({ type: Boolean })
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto);
   }
+
+  // @Get('me')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiOperation({ summary: 'Get current user' })
+  // @ApiResponse({ type: UserResponseDto })
+  // @Serialize(UserResponseDto)
+  // async me(@GetUser('id') userId: number) {
+  //   return this.authService.me(userId);
+  // }
 }

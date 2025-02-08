@@ -150,7 +150,7 @@ export class PaymentMethodService {
     paymentGateway: string,
   ) {
     const { method_key, default_card } = createPaymentMethodDto;
-    const { id: user_id, name, email } = this.authService.me();
+    const { id: user_id, name, email } = {email:"", id: 1, name:""};
     const listofCustomer = await this.stripeService.listAllCustomer();
     let currentCustomer = listofCustomer.data.find(
       (customer: StripeCustomer) => customer.email === email,

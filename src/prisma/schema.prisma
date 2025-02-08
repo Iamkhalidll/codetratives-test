@@ -1,12 +1,99 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client"  
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+// Add these to your schema
 
+model User {
+  id            Int              @id @default(autoincrement())
+  name          String
+  email         String           @unique
+  password      String
+  profile       Json?
+  shops         Shop[]           @relation("UserShops")
+  managed_shop  Shop?            @relation("ManagedShop", references: [id], fields: [managedShopId])
+  managedShopId Int?             @unique
+  is_active     Boolean          @default(true)
+  address       Address[]
+  permissions   String[]  @default(["Customer"])
+  otps          OTP[]
+  orders        Order[]
+  orderFiles    OrderFile[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([email])
+}
+
+
+model Shop {
+  id          Int      @id @default(autoincrement())
+  owner       User     @relation("UserShops", fields: [ownerId], references: [id])
+  ownerId     Int
+  manager     User?    @relation("ManagedShop")
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  coverImage  Json?
+  logo        Json?
+  isActive    Boolean  @default(true)
+  address     Json?
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  trackingNumber  String   @unique
+  userId          Int      // Add user relation
+  user            User     @relation(fields: [userId], references: [id])
+  amount          Float
+  total           Float
+  deliveryFee     Float
+  discount        Float
+  status          Json
+  deliveryTime    String
+  products        Json[]
+  shippingAddress Json
+  createdAt       DateTime @default(now())
+
+  @@index([userId]) // Add index for faster lookups
+}
+
+model OrderFile {
+  id             Int      @id @default(autoincrement())
+  purchaseKey    String   @unique
+  digitalFileId  Int
+  orderId        Int?
+  customerId     Int
+  user           User     @relation(fields: [customerId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  file           Json?
+
+  @@index([customerId]) // Add index for faster lookups
+}
+
+model OTP {
+  id           String   @id @default(uuid())
+  code         String
+  phone_number String
+  userId       Int?
+  user         User?    @relation(fields: [userId], references: [id])
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([phone_number]) // Add index for faster phone lookups
+  @@index([userId])       // Add index for faster user lookups
+}
 model Attribute {
   id     Int      @id @default(autoincrement())
   name   String
@@ -68,30 +155,6 @@ model Coupon {
   translatedLanguages String[]
 }
 
-model OrderFile {
-  id             Int      @id @default(autoincrement())
-  purchaseKey    String   @unique
-  digitalFileId  Int
-  orderId        Int?
-  customerId     Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  file           Json?
-}
-
-model Order {
-  id              Int      @id @default(autoincrement())
-  trackingNumber  String   @unique
-  amount          Float
-  total           Float
-  deliveryFee     Float
-  discount        Float
-  status          Json
-  deliveryTime    String
-  products        Json[]
-  shippingAddress Json
-  createdAt       DateTime @default(now())
-}
 
 model OrderStatus {
   id        Int      @id @default(autoincrement())
@@ -122,31 +185,16 @@ model Product {
   updatedAt    DateTime @updatedAt
 }
 
-model Shop {
+
+
+model Address {
   id          Int      @id @default(autoincrement())
-  ownerId     Int
-  name        String
-  slug        String   @unique
-  description String?  @db.Text
-  coverImage  Json?
-  logo        Json?
-  isActive    Boolean  @default(true)
-  address     Json?
-  settings    Json?
+  title       String
+  type        String
+  default     Boolean  @default(false)
+  address     Json
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-}
-
-model User {
-  id                Int       @id @default(autoincrement())
-  name              String
-  email             String    @unique
-  emailVerifiedAt   DateTime?
-  isActive          Boolean   @default(true)
-  shopId            Int?
-  profile           Json?
-  address           Json[]
-  permissions       Json[]
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
 }

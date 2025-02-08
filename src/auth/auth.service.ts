@@ -1,161 +1,179 @@
-import { Injectable } from '@nestjs/common';
-import {
-  AuthResponse,
-  ChangePasswordDto,
-  ForgetPasswordDto,
-  LoginDto,
-  CoreResponse,
-  RegisterDto,
-  ResetPasswordDto,
-  VerifyForgetPasswordDto,
-  SocialLoginDto,
-  OtpLoginDto,
-  OtpResponse,
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import * as argon2 from 'argon2';
+import { 
+  RegisterDto, 
+  LoginDto, 
+  AuthResponse, 
+  ChangePasswordDto, 
+  SocialLoginDto, 
+  OtpDto, 
   VerifyOtpDto,
-  OtpDto,
+  Permission
 } from './dto/create-auth.dto';
-import { v4 as uuidv4 } from 'uuid';
-import { plainToClass } from 'class-transformer';
-import { User } from 'src/users/entities/user.entity';
-import usersJson from '@db/users.json';
-const users = plainToClass(User, usersJson);
 
 @Injectable()
 export class AuthService {
-  private users: User[] = users;
-  async register(createUserInput: RegisterDto): Promise<AuthResponse> {
-    const user: User = {
-      id: uuidv4(),
-      ...users[0],
-      ...createUserInput,
-      created_at: new Date(),
-      updated_at: new Date(),
-    };
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
 
-    this.users.push(user);
-    return {
-      token: 'jwt token',
-      permissions: ['super_admin', 'customer'],
-    };
+  private async generateToken(userId: number, permissions: string[]): Promise<string> {
+    return this.jwtService.sign({ sub: userId, permissions });
   }
-  async login(loginInput: LoginDto): Promise<AuthResponse> {
-    console.log(loginInput);
-    if (loginInput.email === 'admin@demo.com') {
-      return {
-        token: 'jwt token',
-        permissions: ['store_owner', 'super_admin'],
-        role: 'super_admin',
-      };
-    } else if (['store_owner@demo.com', 'vendor@demo.com'].includes(loginInput.email)) {
-      return {
-        token: 'jwt token',
-        permissions: ['store_owner', 'customer'],
-        role: 'store_owner',
-      };
-    } else {
-      return {
-        token: 'jwt token',
-        permissions: ['customer'],
-        role: 'customer',
-      };
+
+  async register(dto: RegisterDto): Promise<AuthResponse> {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (existing) {
+      throw new ConflictException('Email already exists');
     }
-  }
-  async changePassword(
-    changePasswordInput: ChangePasswordDto,
-  ): Promise<CoreResponse> {
-    console.log(changePasswordInput);
+
+    const hashedPassword = await argon2.hash(dto.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        password: hashedPassword,
+        profile: { notifications: { email: true, push: true } },
+      },
+    });
+
+    const token = await this.generateToken(user.id, user.permissions);
 
     return {
-      success: true,
-      message: 'Password change successful',
-    };
-  }
-  async forgetPassword(
-    forgetPasswordInput: ForgetPasswordDto,
-  ): Promise<CoreResponse> {
-    console.log(forgetPasswordInput);
-
-    return {
-      success: true,
-      message: 'Password change successful',
-    };
-  }
-  async verifyForgetPasswordToken(
-    verifyForgetPasswordTokenInput: VerifyForgetPasswordDto,
-  ): Promise<CoreResponse> {
-    console.log(verifyForgetPasswordTokenInput);
-
-    return {
-      success: true,
-      message: 'Password change successful',
-    };
-  }
-  async resetPassword(
-    resetPasswordInput: ResetPasswordDto,
-  ): Promise<CoreResponse> {
-    console.log(resetPasswordInput);
-
-    return {
-      success: true,
-      message: 'Password change successful',
-    };
-  }
-  async socialLogin(socialLoginDto: SocialLoginDto): Promise<AuthResponse> {
-    console.log(socialLoginDto);
-    return {
-      token: 'jwt token',
-      permissions: ['super_admin', 'customer'],
-      role: 'customer',
-    };
-  }
-  async otpLogin(otpLoginDto: OtpLoginDto): Promise<AuthResponse> {
-    console.log(otpLoginDto);
-    return {
-      token: 'jwt token',
-      permissions: ['super_admin', 'customer'],
-      role: 'customer',
-    };
-  }
-  async verifyOtpCode(verifyOtpInput: VerifyOtpDto): Promise<CoreResponse> {
-    console.log(verifyOtpInput);
-    return {
-      message: 'success',
-      success: true,
-    };
-  }
-  async sendOtpCode(otpInput: OtpDto): Promise<OtpResponse> {
-    console.log(otpInput);
-    return {
-      message: 'success',
-      success: true,
-      id: '1',
-      provider: 'google',
-      phone_number: '+919494949494',
-      is_contact_exist: true,
+      token,
+      permissions: user.permissions,
+      role: user.permissions[0],
     };
   }
 
-  // async getUsers({ text, first, page }: GetUsersArgs): Promise<UserPaginator> {
-  //   const startIndex = (page - 1) * first;
-  //   const endIndex = page * first;
-  //   let data: User[] = this.users;
-  //   if (text?.replace(/%/g, '')) {
-  //     data = fuse.search(text)?.map(({ item }) => item);
+  async login(dto: LoginDto): Promise<AuthResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isValid = await argon2.verify(user.password, dto.password);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const token = await this.generateToken(user.id, user.permissions);
+
+    return {
+      token,
+      permissions: user.permissions,
+      role: user.permissions[0],
+    };
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user?.password) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isValid = await argon2.verify(user.password, dto.oldPassword);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: await argon2.hash(dto.newPassword) },
+    });
+
+    return true;
+  }
+
+  // async socialLogin(dto: SocialLoginDto): Promise<AuthResponse> {
+  //   let user = await this.prisma.user.findFirst({
+  //     where: {
+  //       profile: {
+  //         path: ['socialProvider'],
+  //         equals: dto.provider,
+  //       },
+  //     }
+  //   });
+
+  //   if (!user) {
+  //     user = await this.prisma.user.create({
+  //       data: {
+  //         name: 'Social User', // Should come from provider
+  //         email: 'social@example.com', // Should come from provider
+  //         profile: {
+  //           socialProvider: dto.provider,
+  //           socialToken: dto.access_token,
+  //         },
+  //         permissions: [Permission.CUSTOMER],
+  //       },
+  //     });
   //   }
-  //   const results = data.slice(startIndex, endIndex);
+
+  //   const token = await this.generateToken(user.id, user.permissions);
+
   //   return {
-  //     data: results,
-  //     paginatorInfo: paginate(data.length, page, first, results.length),
+  //     token,
+  //     permissions: user.permissions,
+  //     role: Permission.CUSTOMER,
   //   };
   // }
-  // public getUser(getUserArgs: GetUserArgs): User {
-  //   return this.users.find((user) => user.id === getUserArgs.id);
-  // }
-  me(): User {
-    return this.users[0];
+
+  async verifyOtp(dto: VerifyOtpDto): Promise<boolean> {
+    const otp = await this.prisma.oTP.findFirst({
+      where: {
+        code: dto.code,
+        phone_number: dto.phone_number,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!otp) return false;
+
+    await this.prisma.oTP.delete({ where: { id: otp.id } });
+    return true;
   }
 
-  // updateUser(id: number, updateUserInput: UpdateUserInput) {
-  //   return `This action updates a #${id} user`;
-  // }
+  async sendOtp(dto: OtpDto): Promise<string> {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const otp = await this.prisma.oTP.create({
+      data: {
+        code,
+        phone_number: dto.phone_number,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      },
+    });
+
+    // TODO: Send SMS with code
+    return otp.id;
+  }
+
+  async me(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        shops: true,
+        managed_shop: true,
+        address: { where: { default: true } },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const { password, ...result } = user;
+    return result;
+  }
 }

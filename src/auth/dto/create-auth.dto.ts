@@ -1,159 +1,95 @@
-import { PartialType, PickType } from '@nestjs/swagger';
-import { CoreMutationOutput } from 'src/common/dto/core-mutation-output.dto';
-import { User } from 'src/users/entities/user.entity';
+import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsEmail, IsEnum, IsOptional, MinLength, Matches, IsNotEmpty } from 'class-validator';
 
-enum Permission {
+export enum Permission {
   SUPER_ADMIN = 'Super admin',
   STORE_OWNER = 'Store owner',
   STAFF = 'Staff',
   CUSTOMER = 'Customer',
 }
 
-export class RegisterDto extends PickType(User, ['name', 'email', 'password']) {
-  @IsEnum(Permission)
-  @IsOptional()
-  permission: Permission = Permission.CUSTOMER;
-}
-
-export class LoginDto extends PartialType(
-  PickType(User, ['email', 'password']),
-) {}
-
-export class SocialLoginDto {
+export class RegisterDto {
+  @ApiProperty({ example: 'John Doe' })
   @IsString()
   @IsNotEmpty()
-  provider: string;
+  name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  access_token: string;
-}
-
-export class ChangePasswordDto {
-  @IsString()
-  @IsNotEmpty()
-  oldPassword: string;
-
-  @IsString()
-  @MinLength(6)
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message: 'Password is too weak',
-  })
-  newPassword: string;
-}
-
-export class ForgetPasswordDto {
-  @IsEmail()
-  email: string;
-}
-
-export class VerifyForgetPasswordDto {
+  @ApiProperty({ example: 'john@example.com' })
   @IsEmail()
   email: string;
 
-  @IsString()
-  @IsNotEmpty()
-  token: string;
-}
-
-export class ResetPasswordDto {
-  @IsEmail()
-  email: string;
-
-  @IsString()
-  @IsNotEmpty()
-  token: string;
-
+  @ApiProperty()
   @IsString()
   @MinLength(6)
   @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
     message: 'Password is too weak',
   })
   password: string;
-}
 
-export class AuthResponse {
-  @IsString()
-  token: string;
-
-  @IsString({ each: true })
-  permissions: string[];
-
-  @IsString()
+  @ApiProperty({ enum: Permission })
   @IsOptional()
-  role?: string;
+  permissions: Permission[] = [Permission.CUSTOMER];
 }
 
-export class CoreResponse extends CoreMutationOutput {}
+export class LoginDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
 
-export class VerifyOtpDto {
+  @ApiProperty()
   @IsString()
-  @IsNotEmpty()
-  otp_id: string;
-
-  @IsString()
-  @IsNotEmpty()
-  code: string;
-
-  @IsString()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'Phone number must be in international format',
-  })
-  phone_number: string;
+  password: string;
 }
 
-export class OtpResponse {
-  @IsString()
-  id: string;
-
-  @IsString()
-  message: string;
-
-  @IsNotEmpty()
-  success: boolean;
-
-  @IsString()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'Phone number must be in international format',
-  })
-  phone_number: string;
-
+export class SocialLoginDto {
+  @ApiProperty({ enum: ['google', 'facebook', 'apple'] })
   @IsString()
   provider: string;
 
-  @IsNotEmpty()
-  is_contact_exist: boolean;
+  @ApiProperty()
+  @IsString()
+  access_token: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty()
+  @IsString()
+  oldPassword: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(6)
+  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/)
+  newPassword: string;
 }
 
 export class OtpDto {
+  @ApiProperty({ example: '+1234567890' })
   @IsString()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'Phone number must be in international format',
-  })
+  @Matches(/^\+[1-9]\d{1,14}$/)
   phone_number: string;
 }
 
-export class OtpLoginDto {
+export class VerifyOtpDto extends OtpDto {
+  @ApiProperty()
   @IsString()
-  @IsNotEmpty()
-  otp_id: string;
-
-  @IsString()
-  @IsNotEmpty()
   code: string;
+}
 
-  @IsString()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'Phone number must be in international format',
-  })
-  phone_number: string;
-
-  @IsString()
+export class OtpLoginDto extends VerifyOtpDto {
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
   name?: string;
 
-  @IsEmail()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsEmail()
   email?: string;
+}
+
+export class AuthResponse {
+  token: string;
+  permissions: string[];
+  role?: string;
 }
