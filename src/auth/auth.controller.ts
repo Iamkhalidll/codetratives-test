@@ -31,7 +31,8 @@ export class AuthController {
 
   @Get("test")
   async test() {
-    return (process.env.DATABASE_URL);
+    console.log("test", process.env.JWT_EXPIRATION_TIME);
+    return process.env.JWT_EXPIRATION_TIME;
   }
   @Post('login')
   @ApiOperation({ summary: 'User login' })
