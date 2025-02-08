@@ -12,6 +12,9 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "strictPropertyInitialization": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
     "paths": {
       "@db/*": ["./src/db/pickbazar/*"]
     },
