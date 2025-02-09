@@ -6,6 +6,7 @@ import { seedAuthors } from './authors.seed';
 import { seedAttributes } from './attributes.seed';
 import { seedShops } from './shop.seed';
 import { seedCategories } from './category.seed';
+import { seedTypes } from './types.seed';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -16,6 +17,7 @@ async function main() {
     await seedAuthors(prisma);
     await seedAttributes(prisma);
     await seedCategories(prisma);
+    await seedTypes(prisma);
     await seedShops(prisma);
     console.log('✅ Database seeding completed');
   } catch (error) {

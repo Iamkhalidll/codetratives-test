@@ -1,74 +1,94 @@
 import { Injectable } from '@nestjs/common';
-import { plainToClass } from 'class-transformer';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateTypeDto } from './dto/create-type.dto';
 import { UpdateTypeDto } from './dto/update-type.dto';
-import { Type } from './entities/type.entity';
-
-import typesJson from '@db/types.json';
-import Fuse from 'fuse.js';
 import { GetTypesDto } from './dto/get-types.dto';
-
-const types = plainToClass(Type, typesJson);
-const options = {
-  keys: ['name'],
-  threshold: 0.3,
-};
-const fuse = new Fuse(types, options);
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TypesService {
-  private types: Type[] = types;
+  constructor(private prisma: PrismaService) {}
 
-  getTypes({ text, search }: GetTypesDto) {
-    let data: Type[] = this.types;
-    if (text?.replace(/%/g, '')) {
-      data = fuse.search(text)?.map(({ item }) => item);
+  async getTypes({ text, search }: GetTypesDto) {
+    let where: Prisma.TypeWhereInput = {};
+    
+    if (text) {
+      where.OR = [
+        { name: { contains: text, mode: 'insensitive' } },
+        { slug: { contains: text, mode: 'insensitive' } }
+      ];
     }
 
     if (search) {
-      const parseSearchParams = search.split(';');
-      const searchText: any = [];
-      for (const searchParam of parseSearchParams) {
-        const [key, value] = searchParam.split(':');
-        // TODO: Temp Solution
+      const searchParams = search.split(';');
+      for (const param of searchParams) {
+        const [key, value] = param.split(':');
         if (key !== 'slug') {
-          searchText.push({
-            [key]: value,
-          });
+          where[key] = { contains: value, mode: 'insensitive' };
         }
       }
-
-      data = fuse
-        .search({
-          $and: searchText,
-        })
-        ?.map(({ item }) => item);
     }
 
-    return data;
+    return this.prisma.type.findMany({
+      where,
+      include: {
+        products: true
+      }
+    });
   }
 
-  getTypeBySlug(slug: string): Type {
-    return this.types.find((p) => p.slug === slug);
+  async getTypeBySlug(slug: string) {
+    return this.prisma.type.findUnique({
+      where: { slug },
+      include: {
+        products: true
+      }
+    });
   }
 
-  create(createTypeDto: CreateTypeDto) {
-    return this.types[0];
+  async create(createTypeDto: CreateTypeDto) {
+    const {
+      translated_languages,
+      promotional_sliders,
+      ...rest
+    } = createTypeDto;
+
+    return this.prisma.type.create({
+      data: {
+        ...rest,
+        translatedLanguages: translated_languages || ['en'],  // Map to camelCase
+        promotionalSliders: promotional_sliders || [],        // Map to camelCase
+        language: rest.language || 'en'
+      }
+    });
   }
 
-  findAll() {
-    return `This action returns all types`;
+  async findOne(id: number) {
+    return this.prisma.type.findUnique({
+      where: { id }
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} type`;
+  async update(id: number, updateTypeDto: UpdateTypeDto) {
+    const {
+      translated_languages,
+      promotional_sliders,
+      ...rest
+    } = updateTypeDto;
+
+    return this.prisma.type.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(translated_languages && { translatedLanguages: translated_languages }),
+        ...(promotional_sliders && { promotionalSliders: promotional_sliders })
+      }
+    });
   }
 
-  update(id: number, updateTypeDto: UpdateTypeDto) {
-    return this.types[0];
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} type`;
+  async remove(id: number) {
+    return this.prisma.type.delete({
+      where: { id }
+    });
   }
 }

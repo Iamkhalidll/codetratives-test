@@ -195,19 +195,18 @@ model Category {
   @@map("categories") // Optional: If you want to match your table naming convention
 }
 model Type {
-  id                   Int       @id @default(autoincrement())
-  name                 String
-  language             String    @default("en")
-  translatedLanguages  String[]  @map("translated_languages")
-  settings             Json
-  slug                 String    @unique
-  icon                 String?
-  promotional_sliders  Json[]    @map("promotional_sliders")
+  id                  Int       @id @default(autoincrement())
+  name                String
+  settings            Json?
+  slug                String    @unique
+  language            String    @default("en")
+  icon                String?
+  promotionalSliders  Json[]
+  translatedLanguages String[]
+  banners             Json[]
   products            Product[]
-  createdAt           DateTime   @default(now()) @map("created_at")
-  updatedAt           DateTime   @updatedAt @map("updated_at")
-
-  @@map("types")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 }
 model Product {
   id                            Int       @id @default(autoincrement())
@@ -250,12 +249,14 @@ model Product {
   total_reviews                 Int       @default(0)
   rating_count                  Json[]
   translated_languages          String[]
+  categoryId                    Int?      @map("category_id")
+  created_at                    DateTime  @default(now())
+  updated_at                    DateTime  @updatedAt
+
+  // Relations
   shop                          Shop      @relation(fields: [shop_id], references: [id])
   type                          Type?     @relation(fields: [type_id], references: [id])
   category                      Category? @relation(fields: [categoryId], references: [id])
-  categoryId                    Int?
-  createdAt                     DateTime  @default(now()) @map("created_at")
-  updatedAt                     DateTime  @updatedAt @map("updated_at")
 
   @@index([shop_id])
   @@index([type_id])

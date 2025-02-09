@@ -13,7 +13,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { GetUsersDto } from './dto/get-users.dto';
-import { JwtAuthGuard } from 'src/guards/jwt.guard';
+import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import {UseGuards} from '@nestjs/common';
 @Controller('users')

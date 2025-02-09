@@ -1,193 +1,250 @@
 import { Injectable } from '@nestjs/common';
-import { plainToClass } from 'class-transformer';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { GetProductsDto, ProductPaginator } from './dto/get-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { Product } from './entities/product.entity';
-import { paginate } from 'src/common/pagination/paginate';
-import productsJson from '@db/products.json';
-import popularProductsJson from '@db/popular-products.json';
-import bestSellingProductsJson from '@db/best-selling-products.json';
-import Fuse from 'fuse.js';
-import { GetPopularProductsDto } from './dto/get-popular-products.dto';
-import { GetBestSellingProductsDto } from './dto/get-best-selling-products.dto';
-
-const products = plainToClass(Product, productsJson);
-const popularProducts = plainToClass(Product, popularProductsJson);
-const bestSellingProducts = plainToClass(Product, bestSellingProductsJson);
-
-const options = {
-  keys: [
-    'name',
-    'type.slug',
-    'categories.slug',
-    'status',
-    'shop_id',
-    'author.slug',
-    'tags',
-    'manufacturer.slug',
-    'visibility',
-  ],
-  threshold: 0.3,
-};
-const fuse = new Fuse(products, options);
+import { GetProductsDto, ProductPaginator, GetPopularProductsDto, GetBestSellingProductsDto } from './dto/get-products.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
-  private products: any = products;
-  private popularProducts: any = popularProducts;
-  private bestSellingProducts: any = bestSellingProducts;
+  constructor(private prisma: PrismaService) {}
 
-  create(createProductDto: CreateProductDto) {
-    return this.products[0];
+  async create(createProductDto: CreateProductDto) {
+    try {
+      const {
+        type_id,
+        shop_id,
+        sale_price,
+        min_price,
+        max_price,
+        in_stock,
+        product_type,
+        ...rest
+      } = createProductDto;
+
+      const data: Prisma.ProductCreateInput = {
+        ...rest,
+        shop: {
+          connect: { id: shop_id }
+        },
+        ...(type_id && {
+          type: {
+            connect: { id: type_id }
+          }
+        }),
+        price: new Prisma.Decimal(createProductDto.price || 0),
+        sale_price: sale_price ? new Prisma.Decimal(sale_price) : null,
+        min_price: min_price ? new Prisma.Decimal(min_price) : null,
+        max_price: max_price ? new Prisma.Decimal(max_price) : null,
+        in_stock: in_stock,
+        product_type: product_type,
+      };
+
+      return await this.prisma.product.create({
+        data,
+        include: {
+          type: true,
+          shop: true,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error('A product with this slug already exists');
+        }
+        if (error.code === 'P2003') {
+          throw new Error('Referenced shop or type does not exist');
+        }
+      }
+      throw error;
+    }
   }
-
-  getProducts({ limit, page, search }: GetProductsDto): ProductPaginator {
-    if (!page) page = 1;
-    if (!limit) limit = 30;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    let data: Product[] = this.products;
-
-    const parseSearchParams = search ? search.split(';') : [];
-    const exactFilters: { [key: string]: any } = {};
-    const fuzzyFilters: any[] = [];
-
-    for (const searchParam of parseSearchParams) {
-      const [key, value] = searchParam.split(':');
-
-      if (key === 'shop_id') {
-        exactFilters.shop_id = parseInt(value, 10);
-      } else if (key !== 'slug') {
-        fuzzyFilters.push({ [key]: value });
+  async getProducts({ limit = 30, page = 1, search }: GetProductsDto): Promise<ProductPaginator> {
+    const skip = (page - 1) * limit;
+    
+    let where: Prisma.ProductWhereInput = {};
+    
+    if (search) {
+      const searchParams = search.split(';');
+      for (const param of searchParams) {
+        const [key, value] = param.split(':');
+        
+        switch (key) {
+          case 'shop_id':
+            where.shop_id = parseInt(value, 10);
+            break;
+          case 'name':
+            where.name = { contains: value, mode: 'insensitive' };
+            break;
+          case 'status':
+            where.status = value;
+            break;
+        }
       }
     }
-    if (exactFilters.shop_id) {
-      data = data.filter((product) => product.shop.id === exactFilters.shop_id);
-    }
 
-    if (fuzzyFilters.length) {
-      data = fuse
-        .search({
-          $and: fuzzyFilters,
-        })
-        ?.map(({ item }) => item);
-    }
+    const total = await this.prisma.product.count({ where });
+    const products = await this.prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
 
-    const results = data.slice(startIndex, endIndex);
-    const url = `/products?search=${search}&limit=${limit}`;
     return {
-      data: results,
-      ...paginate(data.length, page, limit, results.length, url),
+      data: products,
+      count: products.length,
+      currentPage: page,
+      firstItem: skip + 1,
+      lastItem: skip + products.length,
+      lastPage: Math.ceil(total / limit),
+      perPage: limit,
+      total,
     };
   }
 
-  getProductBySlug(slug: string): Product {
-    const product = this.products.find((p) => p.slug === slug);
-    const related_products = this.products
-      .filter((p) => p.type.slug === product.type.slug)
-      .slice(0, 20);
+  async getProductBySlug(slug: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { slug },
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
+
+    if (!product) return null;
+
+    const relatedProducts = await this.prisma.product.findMany({
+      where: {
+        type_id: product.type_id,
+        NOT: { id: product.id },
+      },
+      take: 20,
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
+
     return {
       ...product,
-      related_products,
+      related_products: relatedProducts,
     };
   }
 
-  getPopularProducts({ limit, type_slug }: GetPopularProductsDto): Product[] {
-    let data: any = this.popularProducts;
-    if (type_slug) {
-      data = fuse.search(type_slug)?.map(({ item }) => item);
-    }
-    return data?.slice(0, limit);
-  }
-  getBestSellingProducts({
-    limit,
-    type_slug,
-  }: GetBestSellingProductsDto): Product[] {
-    let data: any = this.bestSellingProducts;
-    if (type_slug) {
-      data = fuse.search(type_slug)?.map(({ item }) => item);
-    }
-    return data?.slice(0, limit);
+  async getPopularProducts({ limit = 10, type_slug }: GetPopularProductsDto) {
+    return this.prisma.product.findMany({
+      where: type_slug ? {
+        type: { slug: type_slug }
+      } : undefined,
+      take: limit,
+      orderBy: { ratings: 'desc' },
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
   }
 
-  getProductsStock({ limit, page, search }: GetProductsDto): ProductPaginator {
-    if (!page) page = 1;
-    if (!limit) limit = 30;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    let data: Product[] = this.products.filter((item) => item.quantity <= 9);
+  async getBestSellingProducts({ limit = 10, type_slug }: GetBestSellingProductsDto) {
+    return this.prisma.product.findMany({
+      where: type_slug ? {
+        type: { slug: type_slug }
+      } : undefined,
+      take: limit,
+      orderBy: { sold_quantity: 'desc' },
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
+  }
+
+  async getProductsStock({ limit = 30, page = 1, search }: GetProductsDto): Promise<ProductPaginator> {
+    const skip = (page - 1) * limit;
+    
+    let where: Prisma.ProductWhereInput = {
+      quantity: { lte: 9 }
+    };
 
     if (search) {
-      const parseSearchParams = search.split(';');
-      const searchText: any = [];
-      for (const searchParam of parseSearchParams) {
-        const [key, value] = searchParam.split(':');
-        // TODO: Temp Solution
-        if (key !== 'slug') {
-          searchText.push({
-            [key]: value,
-          });
-        }
-      }
-
-      data = fuse
-        .search({
-          $and: searchText,
-        })
-        ?.map(({ item }) => item);
+      where.name = { contains: search, mode: 'insensitive' };
     }
 
-    const results = data.slice(startIndex, endIndex);
-    const url = `/products-stock?search=${search}&limit=${limit}`;
+    const total = await this.prisma.product.count({ where });
+    const products = await this.prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
+
     return {
-      data: results,
-      ...paginate(data.length, page, limit, results.length, url),
+      data: products,
+      count: products.length,
+      currentPage: page,
+      firstItem: skip + 1,
+      lastItem: skip + products.length,
+      lastPage: Math.ceil(total / limit),
+      perPage: limit,
+      total,
     };
   }
 
-  getDraftProducts({ limit, page, search }: GetProductsDto): ProductPaginator {
-    if (!page) page = 1;
-    if (!limit) limit = 30;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    let data: Product[] = this.products.filter(
-      (item) => item.status === 'draft',
-    );
+  async getDraftProducts({ limit = 30, page = 1, search }: GetProductsDto): Promise<ProductPaginator> {
+    const skip = (page - 1) * limit;
+    
+    let where: Prisma.ProductWhereInput = {
+      status: 'draft'
+    };
 
     if (search) {
-      const parseSearchParams = search.split(';');
-      const searchText: any = [];
-      for (const searchParam of parseSearchParams) {
-        const [key, value] = searchParam.split(':');
-        // TODO: Temp Solution
-        if (key !== 'slug') {
-          searchText.push({
-            [key]: value,
-          });
-        }
-      }
-
-      data = fuse
-        .search({
-          $and: searchText,
-        })
-        ?.map(({ item }) => item);
+      where.name = { contains: search, mode: 'insensitive' };
     }
 
-    const results = data.slice(startIndex, endIndex);
-    const url = `/draft-products?search=${search}&limit=${limit}`;
+    const total = await this.prisma.product.count({ where });
+    const products = await this.prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
+
     return {
-      data: results,
-      ...paginate(data.length, page, limit, results.length, url),
+      data: products,
+      count: products.length,
+      currentPage: page,
+      firstItem: skip + 1,
+      lastItem: skip + products.length,
+      lastPage: Math.ceil(total / limit),
+      perPage: limit,
+      total,
     };
   }
 
-  update(id: number, updateProductDto: UpdateProductDto) {
-    return this.products[0];
+  async update(id: number, updateProductDto: UpdateProductDto) {
+    return this.prisma.product.update({
+      where: { id },
+      data: updateProductDto,
+      include: {
+        type: true,
+        shop: true,
+      },
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} product`;
+  async remove(id: number) {
+    return this.prisma.product.delete({
+      where: { id },
+    });
   }
 }

@@ -1,5 +1,17 @@
+import { IsOptional, IsNumber, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+
 export class GetPopularProductsDto {
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
   type_slug?: string;
-  limit: number;
-  shop_id?: number;
+
+  @IsOptional()
+  @IsString()
+  shop_id?: string;
 }

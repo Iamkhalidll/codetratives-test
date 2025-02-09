@@ -1,21 +1,19 @@
-import { OmitType } from '@nestjs/swagger';
-import { Product } from '../entities/product.entity';
-
-export class CreateProductDto extends OmitType(Product, [
-  'id',
-  'slug',
-  'created_at',
-  'updated_at',
-  'orders',
-  'pivot',
-  'shop',
-  'categories',
-  'tags',
-  'type',
-  'related_products',
-  // 'variation_options',
-  'translated_languages',
-]) {
-  categories: number[];
-  tags: number[];
+export class CreateProductDto {
+  name: string;
+  slug: string;
+  description?: string;
+  type_id?: number;
+  shop_id: number;
+  price?: number;
+  sale_price?: number;
+  min_price?: number;
+  max_price?: number;
+  sku?: string;
+  quantity?: number;
+  in_stock?: boolean;
+  status?: string;
+  product_type?: string;
+  unit?: string;
+  image?: any;
+  gallery?: any[];
 }
