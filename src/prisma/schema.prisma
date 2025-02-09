@@ -14,7 +14,6 @@ model User {
   name          String
   email         String           @unique
   password      String
-  profile       Json?
   shops         Shop[]           @relation("UserShops")
   managed_shop  Shop?            @relation("ManagedShop", references: [id], fields: [managedShopId])
   managedShopId Int?             @unique
@@ -26,7 +25,7 @@ model User {
   orderFiles    OrderFile[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
-
+  profile       Profile?
   @@index([email])
 }
 
@@ -95,17 +94,33 @@ model OTP {
   @@index([userId])       // Add index for faster user lookups
 }
 model Attribute {
-  id     Int      @id @default(autoincrement())
-  name   String
-  slug   String   @unique
-  values AttributeValue[]
+  id                   Int              @id @default(autoincrement())
+  name                 String
+  shopId               Int              @map("shop_id")
+  language            String           @default("en")
+  translatedLanguages String[]         @map("translated_languages")
+  slug                String           @unique
+  type                Json?            // Storing type as JSON since it's a nested object
+  values              AttributeValue[]
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  @@map("attributes")
 }
 
 model AttributeValue {
-  id           Int       @id @default(autoincrement())
-  value        String
-  attributeId  Int
-  attribute    Attribute @relation(fields: [attributeId], references: [id])
+  id                   Int       @id @default(autoincrement())
+  value               String
+  attributeId         Int       @map("attribute_id")
+  slug                String    @unique
+  meta                String?
+  language            String    @default("en")
+  translatedLanguages String[]  @map("translated_languages")
+  attribute           Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("attribute_values")
 }
 
 model Author {
@@ -128,16 +143,6 @@ model Author {
   updatedAt            DateTime   @updatedAt
 }
 
-model Category {
-  id        Int        @id @default(autoincrement())
-  name      String
-  slug      String     @unique
-  image     Json?
-  icon      String?
-  children  Category[] @relation("SubCategories")
-  parent    Category?  @relation("SubCategories", fields: [parentId], references: [id])
-  parentId  Int?
-}
 
 model Coupon {
   id                   Int       @id @default(autoincrement())
@@ -166,25 +171,46 @@ model OrderStatus {
 }
 
 model Product {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   name         String
-  slug         String   @unique
-  description  String?  @db.Text
+  slug         String     @unique
+  description  String?    @db.Text
+  sku          String?    
   image        Json?
   gallery      Json[]
-  quantity     Int      @default(0)
-  price        Float?
-  salePrice    Float?
+  quantity     Int        @default(0)
+  price        Decimal?   @db.Decimal(10,2)
+  salePrice    Decimal?   @db.Decimal(10,2)
   unit         String?
   productType  String?
-  maxPrice     Float?
-  minPrice     Float?
+  maxPrice     Decimal?   @db.Decimal(10,2)
+  minPrice     Decimal?   @db.Decimal(10,2)
+  status       String     @default("draft")
   tags         Json[]
   variations   Json[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  category     Category?  @relation(fields: [categoryId], references: [id])
+  categoryId   Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([sku])  // This creates a unique constraint but allows null values
+  @@index([categoryId])
+  @@index([status])
 }
 
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  slug      String     @unique
+  image     Json?
+  icon      String?
+  children  Category[] @relation("SubCategories")
+  parent    Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  parentId  Int?
+  products  Product[]  // Added this line to complete the relation
+  
+  @@index([parentId])
+}
 
 
 model Address {
@@ -197,4 +223,54 @@ model Address {
   user        User     @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Analytics {
+  id                       Int      @id @default(autoincrement())
+  totalRevenue            Decimal  @db.Decimal(10, 2)
+  totalRefunds            Decimal  @db.Decimal(10, 2)
+  totalShops              Int
+  totalVendors            Int
+  todaysRevenue           Decimal  @db.Decimal(10, 2)
+  totalOrders             Int
+  newCustomers            Int
+  todayTotalOrderByStatus Json     // Storing as JSON object
+  weeklyTotalOrderByStatus Json     // Storing as JSON object
+  monthlyTotalOrderByStatus Json    // Storing as JSON object
+  yearlyTotalOrderByStatus Json     // Storing as JSON object
+  totalYearSaleByMonth    Json[]   // Array of month-wise sales
+  monthlySales            MonthlySale[] // Added relation field
+  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now())
+
+  @@map("analytics")
+}
+
+model MonthlySale {
+  id          Int       @id @default(autoincrement())
+  month       String
+  total       Int
+  year        Int
+  analytics   Analytics @relation(fields: [analyticsId], references: [id])
+  analyticsId Int
+
+  @@unique([month, year])
+  @@map("monthly_sales")
+}
+
+model Profile {
+  id                Int       @id @default(autoincrement())
+  bio               String?   @db.Text
+  contact           String?
+  avatarId          String?
+  avatarThumbnail   String?
+  avatarOriginal    String?
+  notificationEmail String?
+  notificationEnable Boolean  @default(false)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            Int       @unique @map("user_id")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("profiles")
 }

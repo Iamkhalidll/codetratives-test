@@ -29,11 +29,6 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  @Get("test")
-  async test() {
-    console.log("test", process.env.DATABASE_URL);
-    return process.env.JWT_EXPIRATION_TIME;
-  }
   @Post('login')
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ type: AuthResponseDto })

@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { plainToClass } from 'class-transformer';
 import { CreateUserDto } from './dto/create-user.dto';
 import { GetUsersDto, UserPaginator } from './dto/get-users.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import Fuse from 'fuse.js';
 import { User } from './entities/user.entity';
 import usersJson from '@db/users.json';
 import { paginate } from 'src/common/pagination/paginate';
-
+import { PrismaService } from 'src/prisma/prisma.service';
 const users = plainToClass(User, usersJson);
 
 const options = {
@@ -19,11 +19,75 @@ const fuse = new Fuse(users, options);
 @Injectable()
 export class UsersService {
   private users: User[] = users;
+  constructor(private prisma: PrismaService){}
 
-  create(createUserDto: CreateUserDto) {
-    return this.users[0];
+  create(createUserDto: CreateUserDto) {}
+  update(id: number) {}
+  async updateProfile(updateProfileDto: UpdateProfileDto) {
+    const { id, input } = updateProfileDto;
+    
+    try {
+      const updatedUser = await this.prisma.$transaction(async (prisma) => {
+        // Update the user's name
+        const user = await prisma.user.update({
+          where: { id: parseInt(id) },
+          data: {
+            name: input.name,
+          },
+        });
+
+        // Update or create the profile
+        const profile = await prisma.profile.upsert({
+          where: {
+            userId: user.id,
+          },
+          create: {
+            userId: user.id,
+            bio: input.profile.bio,
+            contact: input.profile.contact,
+            avatarId: input.profile.avatarId,
+            avatarThumbnail: input.profile.avatarThumbnail,
+            avatarOriginal: input.profile.avatarOriginal,
+            notificationEmail: input.profile.notificationEmail,
+            notificationEnable: input.profile.notificationEnable ?? false,
+          },
+          update: {
+            bio: input.profile.bio,
+            contact: input.profile.contact,
+            avatarId: input.profile.avatarId,
+            avatarThumbnail: input.profile.avatarThumbnail,
+            avatarOriginal: input.profile.avatarOriginal,
+            notificationEmail: input.profile.notificationEmail,
+            notificationEnable: input.profile.notificationEnable ?? false,
+          },
+        });
+
+        return {
+          ...user,
+          profile,
+        };
+      });
+
+      return updatedUser;
+    } catch (error) {
+      throw new Error(`Failed to update profile: ${error.message}`);
+    }
   }
 
+  async findOne(id: number) {
+    return this.prisma.profile.findUnique({
+      where: { userId: id },
+      include: {
+        user: true,
+      },
+    });
+  }
+
+  async remove(id: number) {
+    return this.prisma.profile.delete({
+      where: { id },
+    });
+  }
   async getUsers({
     text,
     limit,
@@ -71,18 +135,6 @@ export class UsersService {
   getUsersNotify({ limit }: GetUsersDto): User[] {
     const data: any = this.users;
     return data?.slice(0, limit);
-  }
-
-  findOne(id: number) {
-    return this.users.find((user) => user.id === id);
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return this.users[0];
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
   }
 
   makeAdmin(user_id: string) {

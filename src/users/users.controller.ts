@@ -11,10 +11,11 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { GetUsersDto } from './dto/get-users.dto';
-
+import { JwtAuthGuard } from 'src/guards/jwt.guard';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import {UseGuards} from '@nestjs/common';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -36,7 +37,7 @@ export class UsersController {
 
   @Put(':id')
   updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
+    return this.usersService.update(+id);
   }
 
   @Delete(':id')
@@ -61,22 +62,64 @@ export class UsersController {
 }
 
 @Controller('profiles')
+@UseGuards(JwtAuthGuard)
 export class ProfilesController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly userService: UsersService) {}
 
-  @Post()
-  createProfile(@Body() createProfileDto: CreateProfileDto) {
-    console.log(createProfileDto);
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    try {
+      const profile = await this.userService.findOne(parseInt(id));
+      if (!profile) {
+        throw new HttpException('Profile not found', HttpStatus.NOT_FOUND);
+      }
+      return profile;
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to fetch profile',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 
   @Put(':id')
-  updateProfile(@Body() updateProfileDto: UpdateProfileDto) {
-    console.log(updateProfileDto);
+  async updateProfile(
+    @Param('id') id: string,
+    @Body() updateProfileDto: UpdateProfileDto
+  ) {
+    try {
+      if (id !== updateProfileDto.id) {
+        throw new HttpException('ID mismatch', HttpStatus.BAD_REQUEST);
+      }
+
+      const updatedProfile = await this.userService.updateProfile(updateProfileDto);
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        data: updatedProfile,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to update profile',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 
   @Delete(':id')
-  deleteProfile(@Param('id') id: number) {
-    return this.usersService.remove(id);
+  async deleteProfile(@Param('id') id: string) {
+    try {
+      await this.userService.remove(parseInt(id));
+      return {
+        success: true,
+        message: 'Profile deleted successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to delete profile',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 }
 

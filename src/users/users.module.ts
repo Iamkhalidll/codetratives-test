@@ -9,8 +9,9 @@ import {
   UsersController,
   VendorController,
 } from './users.controller';
-
+import { PrismaModule } from 'src/prisma/prisma.module';
 @Module({
+  imports: [PrismaModule],
   controllers: [
     UsersController,
     ProfilesController,
@@ -21,6 +22,6 @@ import {
     AllCustomerController,
   ],
   providers: [UsersService],
-  exports: [UsersService],
+  exports: [ UsersService],
 })
 export class UsersModule {}

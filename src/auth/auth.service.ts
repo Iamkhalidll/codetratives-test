@@ -12,6 +12,7 @@ import {
   VerifyOtpDto,
   Permission
 } from './dto/create-auth.dto';
+import { create } from 'domain';
 
 @Injectable()
 export class AuthService {
@@ -39,10 +40,8 @@ export class AuthService {
       data: {
         name: dto.name,
         email: dto.email,
-        password: hashedPassword,
-        profile: { notifications: { email: true, push: true } },
-      },
-    });
+        password: hashedPassword, 
+    }});
 
     const token = await this.generateToken(user.id, user.permissions);
 
