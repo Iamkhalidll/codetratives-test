@@ -31,20 +31,21 @@ model User {
 
 
 model Shop {
-  id          Int      @id @default(autoincrement())
-  owner       User     @relation("UserShops", fields: [ownerId], references: [id])
+  id          Int       @id @default(autoincrement())
+  owner       User      @relation("UserShops", fields: [ownerId], references: [id])
   ownerId     Int
-  manager     User?    @relation("ManagedShop")
+  manager     User?     @relation("ManagedShop")
   name        String
-  slug        String   @unique
-  description String?  @db.Text
+  slug        String    @unique
+  description String?   @db.Text
   coverImage  Json?
   logo        Json?
-  isActive    Boolean  @default(true)
+  isActive    Boolean   @default(true)
   address     Json?
   settings    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  products    Product[] // Add this relation field
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([ownerId])
 }
@@ -170,48 +171,96 @@ model OrderStatus {
   updatedAt DateTime @updatedAt
 }
 
-model Product {
-  id           Int        @id @default(autoincrement())
-  name         String
-  slug         String     @unique
-  description  String?    @db.Text
-  sku          String?    
-  image        Json?
-  gallery      Json[]
-  quantity     Int        @default(0)
-  price        Decimal?   @db.Decimal(10,2)
-  salePrice    Decimal?   @db.Decimal(10,2)
-  unit         String?
-  productType  String?
-  maxPrice     Decimal?   @db.Decimal(10,2)
-  minPrice     Decimal?   @db.Decimal(10,2)
-  status       String     @default("draft")
-  tags         Json[]
-  variations   Json[]
-  category     Category?  @relation(fields: [categoryId], references: [id])
-  categoryId   Int?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+// schema.prisma
 
-  @@unique([sku])  // This creates a unique constraint but allows null values
-  @@index([categoryId])
-  @@index([status])
-}
-
+// Your existing model needs to be updated to this:
 model Category {
-  id        Int        @id @default(autoincrement())
-  name      String
-  slug      String     @unique
-  image     Json?
-  icon      String?
-  children  Category[] @relation("SubCategories")
-  parent    Category?  @relation("SubCategories", fields: [parentId], references: [id])
-  parentId  Int?
-  products  Product[]  // Added this line to complete the relation
-  
-  @@index([parentId])
-}
+  id                  Int        @id @default(autoincrement())
+  name                String
+  slug                String     @unique
+  icon                String?
+  image               Json?
+  details             String?    @db.Text       // Added to match seed data
+  language            String     @default("en")
+  translatedLanguages String[]   @map("translated_languages") // Added map
+  children            Category[] @relation("CategoryToCategory")
+  parent              Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  parentId            Int?
+  products            Product[]  
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+  deletedAt           DateTime?  @map("deleted_at") // Added to match your data structure
 
+  @@index([parentId])
+  @@map("categories") // Optional: If you want to match your table naming convention
+}
+model Type {
+  id                   Int       @id @default(autoincrement())
+  name                 String
+  language             String    @default("en")
+  translatedLanguages  String[]  @map("translated_languages")
+  settings             Json
+  slug                 String    @unique
+  icon                 String?
+  promotional_sliders  Json[]    @map("promotional_sliders")
+  products            Product[]
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  @@map("types")
+}
+model Product {
+  id                            Int       @id @default(autoincrement())
+  name                          String
+  slug                          String    @unique
+  description                   String?   @db.Text
+  type_id                       Int?
+  price                         Decimal   @db.Decimal(10,2)
+  shop_id                       Int
+  sale_price                    Decimal?  @db.Decimal(10,2)
+  language                      String    @default("en")
+  min_price                     Decimal   @db.Decimal(10,2)
+  max_price                     Decimal   @db.Decimal(10,2)
+  sku                           String?
+  quantity                      Int       @default(0)
+  sold_quantity                 Int       @default(0)
+  in_stock                      Boolean   @default(true)
+  is_taxable                    Boolean   @default(false)
+  in_flash_sale                 Boolean   @default(false)
+  shipping_class_id             Int?
+  status                        String    @default("draft")
+  product_type                  String    @default("simple")
+  unit                          String?
+  height                        Float?
+  width                         Float?
+  length                        Float?
+  image                         Json?
+  video                         Json?
+  gallery                       Json[]
+  deleted_at                    DateTime?
+  author_id                     Int?
+  manufacturer_id               Int?
+  is_digital                    Boolean   @default(false)
+  is_external                   Boolean   @default(false)
+  external_product_url          String?
+  external_product_button_text  String?
+  blocked_dates                 Json[]
+  orders_count                  Int       @default(0)
+  ratings                       Float     @default(0)
+  total_reviews                 Int       @default(0)
+  rating_count                  Json[]
+  translated_languages          String[]
+  shop                          Shop      @relation(fields: [shop_id], references: [id])
+  type                          Type?     @relation(fields: [type_id], references: [id])
+  category                      Category? @relation(fields: [categoryId], references: [id])
+  categoryId                    Int?
+  createdAt                     DateTime  @default(now()) @map("created_at")
+  updatedAt                     DateTime  @updatedAt @map("updated_at")
+
+  @@index([shop_id])
+  @@index([type_id])
+  @@map("products")
+}
 
 model Address {
   id          Int      @id @default(autoincrement())
