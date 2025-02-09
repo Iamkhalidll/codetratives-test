@@ -1,12 +1,14 @@
+// src/categories/categories.controller.ts
 import {
   Controller,
   Get,
   Post,
   Body,
-  Put,
+  Patch,
   Param,
   Delete,
   Query,
+  NotFoundException,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -23,20 +25,21 @@ export class CategoriesController {
   }
 
   @Get()
-  findAll(@Query() query: GetCategoriesDto) {
+  getCategories(@Query() query: GetCategoriesDto) {
     return this.categoriesService.getCategories(query);
   }
 
   @Get(':param')
-  findOne(@Param('param') param: string, @Query('language') language: string) {
-    return this.categoriesService.getCategory(param, language);
+  async getCategory(@Param('param') param: string) {
+    const category = await this.categoriesService.getCategory(param);
+    if (!category) {
+      throw new NotFoundException(`Category not found`);
+    }
+    return category;
   }
 
-  @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateCategoryDto: UpdateCategoryDto,
-  ) {
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
     return this.categoriesService.update(+id, updateCategoryDto);
   }
 

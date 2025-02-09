@@ -1,23 +1,23 @@
-import { SortOrder } from 'src/common/dto/generic-conditions.dto';
-import { PaginationArgs } from 'src/common/dto/pagination-args.dto';
-import { Paginator } from 'src/common/dto/paginator.dto';
+// src/categories/dto/get-categories.dto.ts
+import { IsOptional, IsNumber, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 
-import { Category } from '../entities/category.entity';
+export class GetCategoriesDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  limit?: number = 15;
 
-export class CategoryPaginator extends Paginator<Category> {
-  data: Category[];
-}
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  page?: number = 1;
 
-export class GetCategoriesDto extends PaginationArgs {
-  orderBy?: QueryCategoriesOrderByColumn;
-  sortedBy?: SortOrder;
+  @IsOptional()
+  @IsString()
   search?: string;
-  parent?: number | string = 'null';
-  language?: string;
-}
 
-export enum QueryCategoriesOrderByColumn {
-  CREATED_AT = 'CREATED_AT',
-  NAME = 'NAME',
-  UPDATED_AT = 'UPDATED_AT',
+  @IsOptional()
+  @IsString()
+  parent?: string;
 }
