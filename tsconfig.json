@@ -19,6 +19,7 @@
       "@db/*": ["./src/db/pickbazar/*"]
     },
     "incremental": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strict": false
   }
 }
