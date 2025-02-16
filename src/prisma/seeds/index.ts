@@ -13,12 +13,12 @@ async function main() {
   try {
     console.log('🌱 Starting database seeding...');
     await seedProducts(prisma);    
-    await seedAnalytics(prisma);
-    await seedAuthors(prisma);
-    await seedAttributes(prisma);
-    await seedCategories(prisma);
-    await seedTypes(prisma);
-    await seedShops(prisma);
+    // await seedAnalytics(prisma);
+    // await seedAuthors(prisma);
+    // await seedAttributes(prisma);
+    // await seedCategories(prisma);
+    // await seedTypes(prisma);
+    // await seedShops(prisma);
     console.log('✅ Database seeding completed');
   } catch (error) {
     console.error('❌ Error during database seeding:', error);

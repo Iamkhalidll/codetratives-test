@@ -29,12 +29,13 @@ export class TypesService {
       }
     }
 
-    return this.prisma.type.findMany({
+    let data = await this.prisma.type.findMany({
       where,
       include: {
         products: true
       }
     });
+    return data;
   }
 
   async getTypeBySlug(slug: string) {
@@ -56,8 +57,8 @@ export class TypesService {
     return this.prisma.type.create({
       data: {
         ...rest,
-        translatedLanguages: translated_languages || ['en'],  // Map to camelCase
-        promotionalSliders: promotional_sliders || [],        // Map to camelCase
+        translated_languages: translated_languages || ['en'],  // Map to camelCase
+        promotional_sliders: promotional_sliders || [],        // Map to camelCase
         language: rest.language || 'en'
       }
     });
@@ -87,7 +88,7 @@ export class TypesService {
   }
 
   async remove(id: number) {
-    return this.prisma.type.delete({
+    return await this.prisma.type.delete({
       where: { id }
     });
   }

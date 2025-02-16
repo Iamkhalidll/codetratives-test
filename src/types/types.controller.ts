@@ -9,8 +9,8 @@ export class TypesController {
   constructor(private readonly typesService: TypesService) {}
 
   @Get()
-  getTypes(@Query() query: GetTypesDto) {
-    return this.typesService.getTypes(query);
+  async getTypes(@Query() query: GetTypesDto) {
+    return await this.typesService.getTypes(query);
   }
 
   @Get(':slug')

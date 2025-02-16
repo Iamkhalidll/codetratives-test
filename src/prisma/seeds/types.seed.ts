@@ -20,7 +20,6 @@ export async function seedTypes(prisma: PrismaClient) {
     for (const type of types) {
       try {
         const typeData = {
-          id: type.id,
           name: type.name,
           language: type.language || 'en',
           translated_languages: type.translated_languages || ['en'],
