@@ -201,8 +201,8 @@ model Type {
   slug                String    @unique
   language            String    @default("en")
   icon                String?
-  promotionalSliders  Json[]
-  translatedLanguages String[]
+  promotional_sliders  Json[]
+  translated_languages String[]
   banners             Json[]
   products            Product[]
   createdAt           DateTime  @default(now()) @map("created_at")
